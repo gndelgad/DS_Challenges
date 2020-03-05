@@ -1,17 +1,15 @@
 import sys
 import requests
 import os
-from xml.dom import minidom
 
 os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages com.databricks:spark-xml_2.10:0.4.1 pyspark-shell'
 
 import pyspark
-from pyspark.sql.types import *
-from pyspark.sql.functions import udf
 from pyspark.sql import Row
 
 WEATHERSTACK_ACCESS_KEY = 'db91a917d3c326fd12a78b8b992cbd74'
 
+# Azure connection credentials
 STORAGE_ACCOUNT_NAME = '<storage-account-name>'
 STORAGE_ACCESS_KEY = '<your-storage-account-access-key>'
 CONTAINER_NAME = '<container-name>'
@@ -29,7 +27,6 @@ def getWeather(city, date):
         'query': city,
         'historical_date' : date
     }
-    
     api_result = requests.get('http://api.weatherstack.com/current', params)
     api_response = api_result.json()
     
@@ -38,7 +35,7 @@ def getWeather(city, date):
     
 def addWeather(row):
     """
-    Add weather information to row.
+    Add weather information to row and remove pii fields.
     """
     row_dct = row.asDict()
     date = row_dct['order-date'][:10]
@@ -64,8 +61,7 @@ def main(spark, input_path):
         .option("rowTag", "order")
         .save("wasbs://%s@%s.blob.core.windows.net/%s" % (CONTAINER_NAME, 
                                                           STORAGE_ACCOUNT_NAME,
-                                                          PREFIX))
-    )
+                                                          PREFIX)))
     return 1
     
 
@@ -75,6 +71,5 @@ if __name__ == '__main__':
     spark = pyspark.sql.SparkSession.builder.enableHiveSupport().getOrCreate()
     spark.conf.set("fs.azure.account.key.%s.blob.core.windows.net" % (STORAGE_ACCOUNT_NAME), 
                   STORAGE_ACCESS_KEY)
-    
     input_path = sys.argv[1]
     main(spark, input_path)
